@@ -53,7 +53,7 @@ app.post('/createParticipant', async (req, res) => {
 
 app.post('/searchUserData', async (req, res) => {
 	try {
-		const { firstName, lastName, phone, email, dob, area, society, flatNumber, wing } = req.body;
+		const { firstName, lastName, phone, email, dob, villageName, society, flatNumber, wing } = req.body;
 
 
 		// Build dynamic search conditions
@@ -64,7 +64,7 @@ app.post('/searchUserData', async (req, res) => {
 		if (phone) searchConditions.phone = { $regex: phone, $options: 'i' };
 		if (email) searchConditions.email = { $regex: email, $options: 'i' };
 		if (dob) searchConditions.dob = { $regex: dob, $options: 'i' };
-		if (area) searchConditions.area = { $regex: area, $options: 'i' };
+		if (villageName) searchConditions.villageName = { $regex: villageName, $options: 'i' };
 		if (society) searchConditions.society = { $regex: society, $options: 'i' };
 		if (flatNumber) searchConditions.flatNumber = { $regex: flatNumber, $options: 'i' };
 		if (wing) searchConditions.wing = { $regex: wing, $options: 'i' };
@@ -97,8 +97,9 @@ app.get('/generate-id/:id', async (req, res) => {
 
 		if (!userData) throw new Error("user not found")
 
-		const { firstName , lastName, phone, area, photoURL } = userData; // Name from form data
+		const { firstName , lastName, phone, villageName, photoURL } = userData; // Name from form data
 		const cardTemplatePath = path.join(__dirname, 'template.png'); // Path to PNG template
+
 
 		// Fetch the photo from the URL
 		const response = await axios({
@@ -114,7 +115,7 @@ app.get('/generate-id/:id', async (req, res) => {
 
 		// Composite the resized photo on the card template
 		const cardImage = await sharp(cardTemplatePath)
-			.composite([{ input: resizedPhoto, top: 270, left: 175 }]) // Adjust 'top' and 'left' to position the photo
+			.composite([{ input: resizedPhoto, top: 270, left: 170 }]) // Adjust 'top' and 'left' to position the photo
 			.toBuffer();
 
 		// Read the card template and user photo using sharp
@@ -138,13 +139,14 @@ app.get('/generate-id/:id', async (req, res) => {
 		// Embed the custom Poppins font
 		const poppinsBold = await pdfDoc.embedFont(poppinsBoldFont);
 
-		const textWidth = poppinsBold.widthOfTextAtSize(`${firstName} ${lastName}`, 18);
-		const areaWidth = poppinsBold.widthOfTextAtSize(area, 15);
-		const phoneWidth = poppinsBold.widthOfTextAtSize(phone, 16);
+		const fullName = `${firstName} ${lastName}`
 
+		const textWidth = poppinsBold.widthOfTextAtSize(fullName, 18);
+		const areaWidth = poppinsBold.widthOfTextAtSize(villageName, 15);
+		const phoneWidth = poppinsBold.widthOfTextAtSize(phone, 16);
+		
 
 		// Calculate the x position to center the text
-
 		const xPosition = (pageWidth - textWidth) / 2;
 		// Calculate the x position to center the area text
 		const areaXPosition = (pageWidth - areaWidth) / 2;
@@ -152,7 +154,7 @@ app.get('/generate-id/:id', async (req, res) => {
 
 
 		// Add the user's name to the PDF
-		page.drawText(`${firstName} ${lastName}`, {
+		page.drawText(fullName, {
 			x: xPosition,
 			y: 125,
 			size: 18,
@@ -167,7 +169,7 @@ app.get('/generate-id/:id', async (req, res) => {
 			font: poppinsBold,
 			color: rgb(69 / 255, 71 / 255, 139 / 255),
 		});
-		page.drawText(area, {
+		page.drawText(villageName, {
 			x: areaXPosition,
 			y: 80,
 			size: 15,
