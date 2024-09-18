@@ -1,5 +1,4 @@
 const express = require('express');
-const multer = require('multer');
 const sharp = require('sharp');
 const { PDFDocument, rgb } = require('pdf-lib');
 const fs = require('fs');
@@ -12,7 +11,6 @@ const { connections } = require('./connection');
 const { configDotenv } = require('dotenv');
 const ParticipantUsers = require('./models/UserData');
 const { default: axios } = require('axios');
-const cloudinary = require('cloudinary').v2;
 
 app.use(express.static('public')); // Serve static files for client
 app.use(express.json());
@@ -20,19 +18,10 @@ app.use(cors());
 configDotenv()
 connections();
 
-cloudinary.config({
-	cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-	api_key: process.env.CLOUDINARY_API_KEY,
-	api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
-
-// const photo = multer({ dest: 'photos/' });
 
 app.get('/', (req, res) => {
 	res.json({ success: true, status: 'success' })
 })
-
 
 const deleteFolderRecursive = function (path) {
 	if (fs.existsSync(path)) {
@@ -49,50 +38,29 @@ const deleteFolderRecursive = function (path) {
 };
 
 
-const deleteFile = (path) => {
-	fs.unlink(path, (err) => {
-		if (err) {
-			console.error('Failed to delete file:', err);
-		} else {
-			console.log('File deleted successfully');
+app.post('/createParticipant', async (req, res) => {
+	try {
+		const { name, phone, email, dob, area, society, flatNumber, wing ,photoURL } = req.body;
+
+	
+		if (!name?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !area?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim() || !photoURL?.trim()) {
+			throw new Error('All fields must be filled')
 		}
-	})
-}
+		
+		const data = await ParticipantUsers.findOne({ phone: phone })
 
-// app.post('/createParticipant', photo.single('photo'), async (req, res) => {
-// 	try {
-// 		const { name, phone, email, dob, area, society, flatNumber, wing } = req.body;
+		if (data) {
+			throw new Error("Number is already registered")
+		}
 
-// 		if (!name?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !area?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim()) {
-// 			throw new Error('All fields must be filled')
-// 		}
+		const newUser = await ParticipantUsers.create({ ...req.body });
 
-// 		if (!req.file) {
-// 			return res.status(400).send('No file uploaded');
-// 		}
+		return res.json({ statusCode: 200, data: newUser, message: 'Successfully Submitted' })
 
-// 		// Upload image to Cloudinary
-// 		const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
-// 			folder: 'user_photos', // Optional folder in Cloudinary
-// 		});
-
-// 		// Remove the file from local uploads folder after Cloudinary upload
-// 		await deleteFile(req.file.path)
-
-// 		const data = await ParticipantUsers.findOne({ phone: phone })
-
-// 		if (data) {
-// 			throw new Error("Number is already registered")
-// 		}
-
-// 		const newUser = await ParticipantUsers.create({ ...req.body, photoURL: cloudinaryResult.secure_url });
-
-// 		return res.json({ statusCode: 200, data: newUser, message: 'Successfully Submitted' })
-
-// 	} catch (err) {
-// 		return res.json({ statusCode: 400, message: err.message })
-// 	}
-// })
+	} catch (err) {
+		return res.json({ statusCode: 400, message: err.message })
+	}
+})
 
 
 app.post('/searchUserData', async (req, res) => {
@@ -122,7 +90,6 @@ app.post('/searchUserData', async (req, res) => {
 			}
 		} else {
 			users = await ParticipantUsers.find();
-
 		}
 	
 		return res.json({ statusCode: 200, data: users, message: 'Successfully user data found' })
@@ -224,12 +191,6 @@ app.get('/generate-id/:id', async (req, res) => {
 		// Save the PDF to a buffer
 		const pdfBytes = await pdfDoc.save();
 
-		// fs.writeFileSync('output.pdf', pdfBytes);
-		// Set response headers and send the PDF
-		// res.setHeader('Content-Type', 'application/pdf');
-		// res.setHeader('Content-Disposition', 'attachment; filename=id-card.pdf');
-	
-
 		// Send base64 encoded PDF in JSON response
 		const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
@@ -238,14 +199,7 @@ app.get('/generate-id/:id', async (req, res) => {
 
 	} catch (error) {
 		res.json({ statusCode: 400, message: error.message });
-	} finally {
-
-		// Clean up the uploaded photo
-		if (req.file && fs.existsSync(req.file.path)) {
-			await deleteFile(req.file.path)
-			console.log('File deleted successfully');
-		}
-	}
+	} 
 });
 
 

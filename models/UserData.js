@@ -15,7 +15,6 @@ const userSchema = new Schema({
 	email: {
 		type: String,
 		required: true,
-		unique: true
 	},
 	dob: {
 		type: String,
