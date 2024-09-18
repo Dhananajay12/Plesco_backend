@@ -30,6 +30,10 @@ cloudinary.config({
 const photo = multer({ dest: 'photos/' });
 const upload = multer({ dest: 'uploads/', limits: { fileSize: 400 * 1024 } });
 
+app.get('/', (req, res) => {
+	res.json({ success: true, status: 'success' })
+})
+
 
 const deleteFolderRecursive = function (path) {
 	if (fs.existsSync(path)) {
