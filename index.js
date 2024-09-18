@@ -23,30 +23,18 @@ app.get('/', (req, res) => {
 	res.json({ success: true, status: 'success' })
 })
 
-const deleteFolderRecursive = function (path) {
-	if (fs.existsSync(path)) {
-		fs.readdirSync(path).forEach(function (file, index) {
-			var curPath = path + "/" + file;
-			if (fs.lstatSync(curPath).isDirectory()) { // recurse
-				deleteFolderRecursive(curPath);
-			} else { // delete file
-				fs.unlinkSync(curPath);
-			}
-		});
-		fs.rmdirSync(path);
-	}
-};
+
 
 
 app.post('/createParticipant', async (req, res) => {
 	try {
-		const { name, phone, email, dob, area, society, flatNumber, wing ,photoURL } = req.body;
+		const { firstName, lastName, phone, email, dob, villageName, society, flatNumber, wing, photoURL, gender, ageGroup } = req.body;
 
 	
-		if (!name?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !area?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim() || !photoURL?.trim()) {
+		if (!firstName?.trim() || !lastName?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !villageName?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim() || !photoURL?.trim() || !gender?.trim() || !ageGroup?.trim()) {
 			throw new Error('All fields must be filled')
 		}
-		
+				
 		const data = await ParticipantUsers.findOne({ phone: phone })
 
 		if (data) {
@@ -65,16 +53,17 @@ app.post('/createParticipant', async (req, res) => {
 
 app.post('/searchUserData', async (req, res) => {
 	try {
-		const { name, phone, email, don, area, society, flatNumber, wing } = req.body;
+		const { firstName, lastName, phone, email, dob, area, society, flatNumber, wing } = req.body;
 
 
 		// Build dynamic search conditions
 		let searchConditions = {};
 
-		if (name) searchConditions.name = { $regex: name, $options: 'i' }; // Case-insensitive partial search
+		if (firstName) searchConditions.name = { $regex: firstName, $options: 'i' }; // Case-insensitive partial search
+		if (lastName) searchConditions.name = { $regex: lastName, $options: 'i' }; // Case-insensitive partial search
 		if (phone) searchConditions.phone = { $regex: phone, $options: 'i' };
 		if (email) searchConditions.email = { $regex: email, $options: 'i' };
-		if (don) searchConditions.don = { $regex: don, $options: 'i' };
+		if (dob) searchConditions.dob = { $regex: dob, $options: 'i' };
 		if (area) searchConditions.area = { $regex: area, $options: 'i' };
 		if (society) searchConditions.society = { $regex: society, $options: 'i' };
 		if (flatNumber) searchConditions.flatNumber = { $regex: flatNumber, $options: 'i' };
@@ -99,9 +88,7 @@ app.post('/searchUserData', async (req, res) => {
 	}
 })
 
-// setTimeout(async () => {
-// 	console.log(await ParticipantUsers.find())
-// }, 200);
+
 
 app.get('/generate-id/:id', async (req, res) => {
 	try {
@@ -110,7 +97,7 @@ app.get('/generate-id/:id', async (req, res) => {
 
 		if (!userData) throw new Error("user not found")
 
-		const { name, phone, area, photoURL } = userData; // Name from form data
+		const { firstName , lastName, phone, area, photoURL } = userData; // Name from form data
 		const cardTemplatePath = path.join(__dirname, 'template.png'); // Path to PNG template
 
 		// Fetch the photo from the URL
@@ -151,7 +138,7 @@ app.get('/generate-id/:id', async (req, res) => {
 		// Embed the custom Poppins font
 		const poppinsBold = await pdfDoc.embedFont(poppinsBoldFont);
 
-		const textWidth = poppinsBold.widthOfTextAtSize(name, 18);
+		const textWidth = poppinsBold.widthOfTextAtSize(`${firstName} ${lastName}`, 18);
 		const areaWidth = poppinsBold.widthOfTextAtSize(area, 15);
 		const phoneWidth = poppinsBold.widthOfTextAtSize(phone, 16);
 
@@ -165,7 +152,7 @@ app.get('/generate-id/:id', async (req, res) => {
 
 
 		// Add the user's name to the PDF
-		page.drawText(name, {
+		page.drawText(`${firstName} ${lastName}`, {
 			x: xPosition,
 			y: 125,
 			size: 18,

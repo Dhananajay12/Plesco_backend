@@ -2,7 +2,9 @@ const { Schema, default: mongoose } = require("mongoose");
 
 
 const userSchema = new Schema({
-	name: { type: String, required: true },
+	firstName: { type: String, required: true },
+	middleName: { type: String},
+	lastName: { type: String, required: true },
 	phone: {
 		type: String,
 		required: true,
@@ -20,7 +22,7 @@ const userSchema = new Schema({
 		type: String,
 		require: true
 	},
-	area: {
+	villageName: {
 		type: String,
 		require: true
 	},
@@ -33,6 +35,14 @@ const userSchema = new Schema({
 		require: true
 	},
 	wing: {
+		type: String,
+		require: true
+	},
+	gender: {
+		type: String,
+		require: true
+	},
+  ageGroup: {
 		type: String,
 		require: true
 	},
