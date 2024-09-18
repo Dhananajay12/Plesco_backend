@@ -27,8 +27,7 @@ cloudinary.config({
 });
 
 
-const photo = multer({ dest: 'photos/' });
-const upload = multer({ dest: 'uploads/', limits: { fileSize: 400 * 1024 } });
+// const photo = multer({ dest: 'photos/' });
 
 app.get('/', (req, res) => {
 	res.json({ success: true, status: 'success' })
@@ -60,40 +59,40 @@ const deleteFile = (path) => {
 	})
 }
 
-app.post('/createParticipant', photo.single('photo'), async (req, res) => {
-	try {
-		const { name, phone, email, dob, area, society, flatNumber, wing } = req.body;
+// app.post('/createParticipant', photo.single('photo'), async (req, res) => {
+// 	try {
+// 		const { name, phone, email, dob, area, society, flatNumber, wing } = req.body;
 
-		if (!name?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !area?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim()) {
-			throw new Error('All fields must be filled')
-		}
+// 		if (!name?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !area?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim()) {
+// 			throw new Error('All fields must be filled')
+// 		}
 
-		if (!req.file) {
-			return res.status(400).send('No file uploaded');
-		}
+// 		if (!req.file) {
+// 			return res.status(400).send('No file uploaded');
+// 		}
 
-		// Upload image to Cloudinary
-		const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
-			folder: 'user_photos', // Optional folder in Cloudinary
-		});
+// 		// Upload image to Cloudinary
+// 		const cloudinaryResult = await cloudinary.uploader.upload(req.file.path, {
+// 			folder: 'user_photos', // Optional folder in Cloudinary
+// 		});
 
-		// Remove the file from local uploads folder after Cloudinary upload
-		await deleteFile(req.file.path)
+// 		// Remove the file from local uploads folder after Cloudinary upload
+// 		await deleteFile(req.file.path)
 
-		const data = await ParticipantUsers.findOne({ phone: phone })
+// 		const data = await ParticipantUsers.findOne({ phone: phone })
 
-		if (data) {
-			throw new Error("Number is already registered")
-		}
+// 		if (data) {
+// 			throw new Error("Number is already registered")
+// 		}
 
-		const newUser = await ParticipantUsers.create({ ...req.body, photoURL: cloudinaryResult.secure_url });
+// 		const newUser = await ParticipantUsers.create({ ...req.body, photoURL: cloudinaryResult.secure_url });
 
-		return res.json({ statusCode: 200, data: newUser, message: 'Successfully Submitted' })
+// 		return res.json({ statusCode: 200, data: newUser, message: 'Successfully Submitted' })
 
-	} catch (err) {
-		return res.json({ statusCode: 400, message: err.message })
-	}
-})
+// 	} catch (err) {
+// 		return res.json({ statusCode: 400, message: err.message })
+// 	}
+// })
 
 
 app.post('/searchUserData', async (req, res) => {
