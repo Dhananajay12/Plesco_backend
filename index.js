@@ -59,8 +59,8 @@ app.post('/searchUserData', async (req, res) => {
 		// Build dynamic search conditions
 		let searchConditions = {};
 
-		if (firstName) searchConditions.name = { $regex: firstName, $options: 'i' }; // Case-insensitive partial search
-		if (lastName) searchConditions.name = { $regex: lastName, $options: 'i' }; // Case-insensitive partial search
+		if (firstName) searchConditions.firstName = { $regex: firstName, $options: 'i' }; // Case-insensitive partial search
+		if (lastName) searchConditions.lastName = { $regex: lastName, $options: 'i' }; // Case-insensitive partial search
 		if (phone) searchConditions.phone = { $regex: phone, $options: 'i' };
 		if (email) searchConditions.email = { $regex: email, $options: 'i' };
 		if (dob) searchConditions.dob = { $regex: dob, $options: 'i' };
