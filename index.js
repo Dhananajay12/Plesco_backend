@@ -11,6 +11,8 @@ const { connections } = require('./connection');
 const { configDotenv } = require('dotenv');
 const ParticipantUsers = require('./models/UserData');
 const { default: axios } = require('axios');
+const AutoIncrement = require('./models/AutoIncrement');
+const XLSX = require('xlsx');
 
 app.use(express.static('public')); // Serve static files for client
 app.use(express.json());
@@ -23,25 +25,55 @@ app.get('/', (req, res) => {
 	res.json({ success: true, status: 'success' })
 })
 
+// setTimeout(async()=>{
+// 	console.log(await AutoIncrement.deleteMany())
+// 	console.log(await ParticipantUsers.deleteMany())
+// })
 
 
+const autoIncrementLeadId = async (autoIncField, start = 10000) => {
+	const incrementData = await AutoIncrement.findOneAndUpdate(
+		{ name: autoIncField },
+		{ $inc: { seq: 1 } },
+		{
+			new: true,
+		}
+	);
+
+	let newSeq = start;
+	if (!incrementData) {
+		const newIncrementData = new AutoIncrement({
+			name: autoIncField,
+			seq: newSeq,
+		});
+		newIncrementData.save();
+	} else {
+		newSeq = incrementData.seq;
+	}
+
+	let temp = newSeq.toString();
+	return temp;
+};
 
 app.post('/createParticipant', async (req, res) => {
 	try {
 		const { firstName, lastName, phone, email, dob, villageName, society, flatNumber, wing, photoURL, gender, ageGroup } = req.body;
 
-	
+
 		if (!firstName?.trim() || !lastName?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !villageName?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim() || !photoURL?.trim() || !gender?.trim() || !ageGroup?.trim()) {
 			throw new Error('All fields must be filled')
 		}
-				
+
 		const data = await ParticipantUsers.findOne({ phone: phone })
 
 		if (data) {
 			throw new Error("Number is already registered")
 		}
+		const uid = await autoIncrementLeadId("userId")
 
-		const newUser = await ParticipantUsers.create({ ...req.body });
+		console.log(uid)
+
+		const newUser = await ParticipantUsers.create({ ...req.body, uid });
 
 		return res.json({ statusCode: 200, data: newUser, message: 'Successfully Submitted' })
 
@@ -80,7 +112,7 @@ app.post('/searchUserData', async (req, res) => {
 		} else {
 			users = await ParticipantUsers.find();
 		}
-	
+
 		return res.json({ statusCode: 200, data: users, message: 'Successfully user data found' })
 
 	} catch (err) {
@@ -89,15 +121,66 @@ app.post('/searchUserData', async (req, res) => {
 })
 
 
+app.get('/download-excel', async (req, res) => {
+	// Create a new workbook
+	try {
+
+		const data = await ParticipantUsers.find();
+
+		const userData = data.map((item) => {
+			return {
+				uid: item.uid,
+				firstName: item.firstName,
+				lastName: item.lastName,
+				phone: item.phone,
+				photoURL: item.photoURL,
+				email: item.email,
+				dob: item.dob,
+				villageName: item.villageName,
+				society: item.society,
+				flatNumber: item.flatNumber,
+				wing: item.wing,
+				gender: item.gender,
+				ageGroup: item.ageGroup,
+			}
+		})
+		
+		const workbook = XLSX.utils.book_new();
+
+		// Convert the data array to a worksheet
+		const worksheet = XLSX.utils.json_to_sheet(userData);
+
+		// Append the worksheet to the workbook
+		XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+
+		// Generate the Excel file as a buffer
+		const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+
+		// Convert the buffer to a base64 string
+		const excelBase64 = excelBuffer.toString('base64');
+
+		// Send the base64 encoded Excel data as part of the JSON response
+		res.json({
+			statusCode: 200,
+			data: excelBase64,
+			message: 'Successfully generated Excel data'
+		});
+
+	} catch (err) {
+		res.json({ statusCode: 400, message: err.message });
+	}
+});
+
 
 app.get('/generate-id/:id', async (req, res) => {
 	try {
 
 		const userData = await ParticipantUsers.findById(req.params.id);
 
+		console.log(userData)
 		if (!userData) throw new Error("user not found")
 
-		const { firstName , lastName, phone, villageName, photoURL } = userData; // Name from form data
+		const { uid, firstName, lastName, phone, villageName, photoURL } = userData; // Name from form data
 		const cardTemplatePath = path.join(__dirname, 'template.png'); // Path to PNG template
 
 
@@ -105,7 +188,12 @@ app.get('/generate-id/:id', async (req, res) => {
 		const response = await axios({
 			url: photoURL, // URL from DB
 			responseType: 'arraybuffer' // To get image as binary data
-		});
+		}).then(res => res).catch(err => err);
+
+		if (response?.response?.status == 404) {
+			throw new Error('Image profile url not found in database')
+		}
+
 		const photoBuffer = Buffer.from(response.data, 'binary');
 
 		// Resize the photo using sharp (set desired width and height here)
@@ -142,15 +230,20 @@ app.get('/generate-id/:id', async (req, res) => {
 		const fullName = `${firstName} ${lastName}`
 
 		const textWidth = poppinsBold.widthOfTextAtSize(fullName, 18);
-		const areaWidth = poppinsBold.widthOfTextAtSize(villageName, 15);
+		// const areaWidth = poppinsBold.widthOfTextAtSize(uid.toString(), 15);
 		const phoneWidth = poppinsBold.widthOfTextAtSize(phone, 16);
-		
+		const uidWidth = poppinsBold.widthOfTextAtSize(uid.toString(), 16);
+
+
+
 
 		// Calculate the x position to center the text
 		const xPosition = (pageWidth - textWidth) / 2;
 		// Calculate the x position to center the area text
-		const areaXPosition = (pageWidth - areaWidth) / 2;
+		// const areaXPosition = (pageWidth - areaWidth) / 2;
 		const phoneXPosition = (pageWidth - phoneWidth) / 2;
+		const uidXPosition = (pageWidth - uidWidth) / 2;
+
 
 
 		// Add the user's name to the PDF
@@ -169,13 +262,22 @@ app.get('/generate-id/:id', async (req, res) => {
 			font: poppinsBold,
 			color: rgb(69 / 255, 71 / 255, 139 / 255),
 		});
-		page.drawText(villageName, {
-			x: areaXPosition,
+		// page.drawText(villageName, {
+		// 	x: areaXPosition,
+		// 	y: 80,
+		// 	size: 15,
+		// 	font: poppinsBold,
+		// 	color: rgb(223 / 255, 74 / 255, 62 / 255),
+		// });
+		page.drawText(uid.toString(), {
+			x: uidXPosition,
 			y: 80,
 			size: 15,
 			font: poppinsBold,
 			color: rgb(223 / 255, 74 / 255, 62 / 255),
 		});
+
+
 
 		// Save the PDF to a buffer
 		const pdfBytes = await pdfDoc.save();
@@ -188,7 +290,7 @@ app.get('/generate-id/:id', async (req, res) => {
 
 	} catch (error) {
 		res.json({ statusCode: 400, message: error.message });
-	} 
+	}
 });
 
 

@@ -2,6 +2,7 @@ const { Schema, default: mongoose } = require("mongoose");
 
 
 const userSchema = new Schema({
+	uid: { type: Number, required: true },
 	firstName: { type: String, required: true },
 	middleName: { type: String},
 	lastName: { type: String, required: true },
