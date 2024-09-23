@@ -172,54 +172,79 @@ app.get('/download-excel', async (req, res) => {
 });
 
 
+
+//sigle id card on one page without a4 size
+
 app.get('/generate-id/:id', async (req, res) => {
 	try {
-
 		const userData = await ParticipantUsers.findById(req.params.id);
 
-		console.log(userData)
-		if (!userData) throw new Error("user not found")
+		if (!userData) throw new Error("user not found");
 
-		const { uid, firstName, lastName, phone, villageName, photoURL } = userData; // Name from form data
+		const { uid, firstName, lastName, phone, gender, photoURL } = userData; // Name from form data
 		const cardTemplatePath = path.join(__dirname, 'template.png'); // Path to PNG template
 
+		const cardTemplateMetadata = await sharp(cardTemplatePath).metadata();
+		const cardWidth = cardTemplateMetadata.width;
+		const cardHeight = cardTemplateMetadata.height;
 
 		// Fetch the photo from the URL
 		const response = await axios({
 			url: photoURL, // URL from DB
-			responseType: 'arraybuffer' // To get image as binary data
+			responseType: 'arraybuffer', // To get image as binary data
 		}).then(res => res).catch(err => err);
 
 		if (response?.response?.status == 404) {
-			throw new Error('Image profile url not found in database')
+			throw new Error('Image profile url not found in database');
 		}
 
 		const photoBuffer = Buffer.from(response.data, 'binary');
 
 		// Resize the photo using sharp (set desired width and height here)
 		const resizedPhoto = await sharp(photoBuffer)
-			.resize(350, 390) // Set your desired width and height here
+			.resize(240, 300) // Set your desired width and height here
 			.toBuffer();
+
+		const left = (cardWidth - 200) / 2; // Center image horizontally on ID card
+		const top = (cardHeight - 360) / 2; // Adjust as needed to center vertically
+
+		// Add 3mm (11px) margin to the card image
+		const whiteMargin = 22; // Approx 3mm in pixels
 
 		// Composite the resized photo on the card template
 		const cardImage = await sharp(cardTemplatePath)
-			.composite([{ input: resizedPhoto, top: 270, left: 170 }]) // Adjust 'top' and 'left' to position the photo
+			.extend({
+				top: whiteMargin,
+				bottom: whiteMargin,
+				left: whiteMargin,
+				right: whiteMargin,
+				background: { r: 255, g: 255, b: 255, alpha: 1 }, // White color
+			})
+			.composite([{ input: resizedPhoto, top: parseInt(top), left: parseInt(left) }]) // Adjust 'top' and 'left' to position the photo
 			.toBuffer();
-
-		// Read the card template and user photo using sharp
-
 
 		// Create a new PDF document
 		const pdfDoc = await PDFDocument.create();
 		pdfDoc.registerFontkit(fontkit);
-		const page = pdfDoc.addPage([350, 500]);
 
-		const pageWidth = page.getWidth();
 
+
+		// Set PDF page size to 161x252 pixels
+		const page = pdfDoc.addPage([161, 252]);
+		const pageWidth = 161;
 
 		// Embed the composed card image into the PDF
+		const xIdPosition = (595.28 - 161) / 2;  // Horizontally center the ID card
+		const yIdPosition = (841.89 - 252) / 2;  // Vertically center the ID card
+
 		const cardImageEmbed = await pdfDoc.embedPng(cardImage);
-		page.drawImage(cardImageEmbed, { x: 0, y: 0, width: 360, height: 500 });
+		page.drawImage(cardImageEmbed, { x: 0, y: 0, width: 161, height: 252 });
+
+
+		// to add one more pdf page
+		// const page2 = pdfDoc.addPage([161, 252]); // Same page size
+		// const cardImageEmbed2 = await pdfDoc.embedPng(cardImage);
+		// page2.drawImage(cardImageEmbed2, { x: 0, y: 0, width: 161, height: 252}); // Same positioning
 
 		const poppinsBoldPath = path.join(__dirname, 'Poppins-Bold.ttf');
 		const poppinsBoldFont = await fsPromises.readFile(poppinsBoldPath);
@@ -227,12 +252,12 @@ app.get('/generate-id/:id', async (req, res) => {
 		// Embed the custom Poppins font
 		const poppinsBold = await pdfDoc.embedFont(poppinsBoldFont);
 
-		const fullName = `${firstName} ${lastName}`
+		const fullName = `${gender === 'male' ? 'Mr.' : 'Miss.'}  ${firstName} ${lastName}`;
 
-		const textWidth = poppinsBold.widthOfTextAtSize(fullName, 18);
+		const textWidth = poppinsBold.widthOfTextAtSize(fullName, 12);
 		// const areaWidth = poppinsBold.widthOfTextAtSize(uid.toString(), 15);
-		const phoneWidth = poppinsBold.widthOfTextAtSize(phone, 16);
-		const uidWidth = poppinsBold.widthOfTextAtSize(uid.toString(), 16);
+		const phoneWidth = poppinsBold.widthOfTextAtSize(phone, 10);
+		const uidWidth = poppinsBold.widthOfTextAtSize(uid.toString(), 8);
 
 
 
@@ -249,16 +274,16 @@ app.get('/generate-id/:id', async (req, res) => {
 		// Add the user's name to the PDF
 		page.drawText(fullName, {
 			x: xPosition,
-			y: 125,
-			size: 18,
+			y: 80,
+			size: 12,
 			font: poppinsBold,
 			color: rgb(51 / 255, 42 / 255, 126 / 255),
 		});
 
 		page.drawText(phone, {
 			x: phoneXPosition,
-			y: 102,
-			size: 16,
+			y: 65,
+			size: 10,
 			font: poppinsBold,
 			color: rgb(69 / 255, 71 / 255, 139 / 255),
 		});
@@ -271,28 +296,26 @@ app.get('/generate-id/:id', async (req, res) => {
 		// });
 		page.drawText(uid.toString(), {
 			x: uidXPosition,
-			y: 80,
-			size: 15,
+			y: 53,
+			size: 8,
 			font: poppinsBold,
 			color: rgb(223 / 255, 74 / 255, 62 / 255),
 		});
 
-
-
 		// Save the PDF to a buffer
 		const pdfBytes = await pdfDoc.save();
+
 
 		// Send base64 encoded PDF in JSON response
 		const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
+		
 		// response
-		res.json({ statusCode: 200, data: pdfBase64, message: 'Successfully ID Card Generated' })
-
+		res.json({ statusCode: 200, data: pdfBase64, message: 'Successfully ID Card Generated' });
 	} catch (error) {
 		res.json({ statusCode: 400, message: error.message });
 	}
 });
-
 
 app.listen(3000, () => {
 	console.log('Server running on http://localhost:3000');
