@@ -181,7 +181,7 @@ app.get('/generate-id/:id', async (req, res) => {
 
 		if (!userData) throw new Error("user not found");
 
-		const { uid, firstName, lastName, phone, gender, photoURL } = userData; // Name from form data
+		const { uid, firstName, lastName, phone, photoURL } = userData; // Name from form data
 		const cardTemplatePath = path.join(__dirname, 'template.png'); // Path to PNG template
 
 		const cardTemplateMetadata = await sharp(cardTemplatePath).metadata();
@@ -252,7 +252,7 @@ app.get('/generate-id/:id', async (req, res) => {
 		// Embed the custom Poppins font
 		const poppinsBold = await pdfDoc.embedFont(poppinsBoldFont);
 
-		const fullName = `${gender === 'male' ? 'Mr.' : 'Miss.'}  ${firstName} ${lastName}`;
+		const fullName = `${firstName} ${lastName}`;
 
 		const textWidth = poppinsBold.widthOfTextAtSize(fullName, 12);
 		// const areaWidth = poppinsBold.widthOfTextAtSize(uid.toString(), 15);
