@@ -11,6 +11,10 @@ const userSchema = new Schema({
 		required: true,
 		unique: true
 	},
+	isDownloaded:{
+		type:Boolean,
+		default:false
+	},
 	photoURL: {
 		type: String,
 		required: true,

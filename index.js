@@ -310,7 +310,9 @@ app.get('/generate-id/:id', async (req, res) => {
 		const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
 
 		
-		// response
+		userData.isDownloaded = true;
+		userData.save();
+
 		res.json({ statusCode: 200, data: pdfBase64, message: 'Successfully ID Card Generated' });
 	} catch (error) {
 		res.json({ statusCode: 400, message: error.message });
