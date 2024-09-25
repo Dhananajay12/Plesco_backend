@@ -26,9 +26,7 @@ app.get('/', (req, res) => {
 	res.json({ success: true, status: 'success' })
 })
 
-// setTimeout(async()=>{
-// 	console.log(await User.find())
-// })
+
 
 
 
@@ -69,7 +67,7 @@ app.post('/login', async (req, res) => {
 		if (user) {
 			return res.json({ statusCode: 200, message: 'Successfully user authorized' })
 		} else {
-			return res.json({ statusCode: 400, message: "Failed to authorized" })
+			return res.json({ statusCode: 400, message: "Username and password is invalid" })
 		}
 
 	} catch (err) {
