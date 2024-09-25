@@ -13,6 +13,7 @@ const ParticipantUsers = require('./models/UserData');
 const { default: axios } = require('axios');
 const AutoIncrement = require('./models/AutoIncrement');
 const XLSX = require('xlsx');
+const User = require('./models/User');
 
 app.use(express.static('public')); // Serve static files for client
 app.use(express.json());
@@ -26,9 +27,10 @@ app.get('/', (req, res) => {
 })
 
 // setTimeout(async()=>{
-// 	console.log(await AutoIncrement.deleteMany())
-// 	console.log(await ParticipantUsers.deleteMany())
+// 	console.log(await User.find())
 // })
+
+
 
 
 const autoIncrementLeadId = async (autoIncField, start = 10000) => {
@@ -54,6 +56,27 @@ const autoIncrementLeadId = async (autoIncField, start = 10000) => {
 	let temp = newSeq.toString();
 	return temp;
 };
+
+
+
+
+app.post('/login', async (req, res) => {
+	try {
+		const { userName, password } = req.body;
+
+		const user = await User.findOne({ userName, password })
+
+		if (user) {
+			return res.json({ statusCode: 200, message: 'Successfully user authorized' })
+		} else {
+			return res.json({ statusCode: 400, message: "Failed to authorized" })
+		}
+
+	} catch (err) {
+		return res.json({ statusCode: 400, message: err.message })
+	}
+});
+
 
 app.post('/createParticipant', async (req, res) => {
 	try {
