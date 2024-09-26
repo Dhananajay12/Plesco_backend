@@ -30,7 +30,6 @@ app.get('/', (req, res) => {
 
 
 
-
 const autoIncrementLeadId = async (autoIncField, start = 10000) => {
 	const incrementData = await AutoIncrement.findOneAndUpdate(
 		{ name: autoIncField },
@@ -61,7 +60,7 @@ const autoIncrementLeadId = async (autoIncField, start = 10000) => {
 app.post('/login', async (req, res) => {
 	try {
 		const { userName, password } = req.body;
-
+		
 		const user = await User.findOne({ userName, password })
 
 		if (user) {
@@ -148,8 +147,9 @@ app.get('/download-excel', async (req, res) => {
 
 		const data = await ParticipantUsers.find();
 
-		const userData = data.map((item) => {
+		const userData = data.map((item,index) => {
 			return {
+				srNo: index + 1,
 				uid: item.uid,
 				firstName: item.firstName,
 				lastName: item.lastName,
