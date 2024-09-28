@@ -14,6 +14,7 @@ const { default: axios } = require('axios');
 const AutoIncrement = require('./models/AutoIncrement');
 const XLSX = require('xlsx');
 const User = require('./models/User');
+const { createCanvas, loadImage, registerFont } = require('canvas');
 
 app.use(express.static('public')); // Serve static files for client
 app.use(express.json());
@@ -329,153 +330,92 @@ app.post('/generate-id', async (req, res) => {
 })
 
 
-
 //sigle id card on one page without a4 size
 
 app.get('/generate-id/:id', async (req, res) => {
 	try {
 		const userData = await ParticipantUsers.findById(req.params.id);
 
-		if (!userData) throw new Error("user not found");
+		if (!userData) throw new Error("User not found");
 
-		const { uid, firstName, lastName, phone, photoURL } = userData; // Name from form data
-		const cardTemplatePath = path.join(__dirname, 'template.png'); // Path to PNG template
+		const { uid, firstName, lastName, phone, photoURL } = userData;
+		const cardTemplatePath = path.join(__dirname, 'template.png');
 
 		const cardTemplateMetadata = await sharp(cardTemplatePath).metadata();
-		const cardWidth = cardTemplateMetadata.width;
-		const cardHeight = cardTemplateMetadata.height;
+		const cardWidth = 161;  // Set card width to 161
+		const cardHeight = 252;  // Set card height to 252
 
-		// Fetch the photo from the URL
+
 		const response = await axios({
-			url: photoURL, // URL from DB
-			responseType: 'arraybuffer', // To get image as binary data
+			url: photoURL,
+			responseType: 'arraybuffer',
 		}).then(res => res).catch(err => err);
 
 		if (response?.response?.status == 404) {
-			throw new Error('Image profile url not found in database');
+			throw new Error('Image profile URL not found in database');
 		}
 
 		const photoBuffer = Buffer.from(response.data, 'binary');
 
-		// Resize the photo using sharp (set desired width and height here)
 		const resizedPhoto = await sharp(photoBuffer)
-			.resize(240, 300) // Set your desired width and height here
+			.resize(240, 300)
 			.toBuffer();
 
-		const left = (cardWidth - 200) / 2; // Center image horizontally on ID card
-		const top = (cardHeight - 360) / 2; // Adjust as needed to center vertically
+		const left = (cardWidth - 100) / 2;
+		const top = (cardHeight - 160) / 2;
 
-		// Add 3mm (11px) margin to the card image
-		const whiteMargin = 22; // Approx 3mm in pixels
+		const whiteMargin = 22;
 
-		// Composite the resized photo on the card template
 		const cardImage = await sharp(cardTemplatePath)
-			.extend({
-				top: whiteMargin,
-				bottom: whiteMargin,
-				left: whiteMargin,
-				right: whiteMargin,
-				background: { r: 255, g: 255, b: 255, alpha: 1 }, // White color
-			})
-			.composite([{ input: resizedPhoto, top: parseInt(top), left: parseInt(left) }]) // Adjust 'top' and 'left' to position the photo
+			.composite([{ input: resizedPhoto, top: 300, left: 230 }])
 			.toBuffer();
 
-		// Create a new PDF document
-		const pdfDoc = await PDFDocument.create();
-		pdfDoc.registerFontkit(fontkit);
+		// Create a canvas to draw the card
 
+		const canvas = createCanvas(cardWidth, cardHeight);
+		const context = canvas.getContext('2d');
 
+		// Draw the card image
+		const cardImageLoaded = await loadImage(cardImage);
+		context.drawImage(cardImageLoaded, 0, 0, cardWidth, cardHeight);
 
-		// Set PDF page size to 161x252 pixels
-		const page = pdfDoc.addPage([161, 252]);
-		const pageWidth = 161;
-
-		// Embed the composed card image into the PDF
-		const xIdPosition = (595.28 - 161) / 2;  // Horizontally center the ID card
-		const yIdPosition = (841.89 - 252) / 2;  // Vertically center the ID card
-
-		const cardImageEmbed = await pdfDoc.embedPng(cardImage);
-		page.drawImage(cardImageEmbed, { x: 0, y: 0, width: 161, height: 252 });
-
-
-		// to add one more pdf page
-		// const page2 = pdfDoc.addPage([161, 252]); // Same page size
-		// const cardImageEmbed2 = await pdfDoc.embedPng(cardImage);
-		// page2.drawImage(cardImageEmbed2, { x: 0, y: 0, width: 161, height: 252}); // Same positioning
-
+		// Register and load the custom font
 		const poppinsBoldPath = path.join(__dirname, 'Poppins-Bold.ttf');
-		const poppinsBoldFont = await fsPromises.readFile(poppinsBoldPath);
+		registerFont(poppinsBoldPath, { family: 'Poppins', weight: 'bold' });
 
-		// Embed the custom Poppins font
-		const poppinsBold = await pdfDoc.embedFont(poppinsBoldFont);
-
+		// Draw the user's name
+		context.font = '12px Poppins';
+		context.fillStyle = 'rgba(51, 42, 126, 1)'; // Name color
 		const fullName = `${firstName} ${lastName}`;
+		const nameWidth = context.measureText(fullName).width;
+		context.fillText(fullName, (cardWidth - nameWidth) / 2, 180);
 
-		const textWidth = poppinsBold.widthOfTextAtSize(fullName, 12);
-		// const areaWidth = poppinsBold.widthOfTextAtSize(uid.toString(), 15);
-		const phoneWidth = poppinsBold.widthOfTextAtSize(phone, 10);
-		const uidWidth = poppinsBold.widthOfTextAtSize(uid.toString(), 8);
+		// Draw the phone number
+		context.font = '9px Poppins';
+		context.fillStyle = 'rgba(69, 71, 139, 1)'; // Phone color
+		const phoneWidth = context.measureText(phone).width;
+		context.fillText(phone, (cardWidth - phoneWidth) / 2, 195);
 
+		// Draw the UID
+		context.font = '8px Poppins';
+		context.fillStyle = 'rgba(223, 74, 62, 1)'; // UID color
+		const uidWidth = context.measureText(uid.toString()).width;
+		context.fillText(uid.toString(), (cardWidth - uidWidth) / 2, 210);
 
+		// Convert canvas to PNG
+		const buffer = canvas.toBuffer('image/jpeg');
 
-
-		// Calculate the x position to center the text
-		const xPosition = (pageWidth - textWidth) / 2;
-		// Calculate the x position to center the area text
-		// const areaXPosition = (pageWidth - areaWidth) / 2;
-		const phoneXPosition = (pageWidth - phoneWidth) / 2;
-		const uidXPosition = (pageWidth - uidWidth) / 2;
-
-
-
-		// Add the user's name to the PDF
-		page.drawText(fullName, {
-			x: xPosition,
-			y: 80,
-			size: 12,
-			font: poppinsBold,
-			color: rgb(51 / 255, 42 / 255, 126 / 255),
-		});
-
-		page.drawText(phone, {
-			x: phoneXPosition,
-			y: 65,
-			size: 10,
-			font: poppinsBold,
-			color: rgb(69 / 255, 71 / 255, 139 / 255),
-		});
-		// page.drawText(villageName, {
-		// 	x: areaXPosition,
-		// 	y: 80,
-		// 	size: 15,
-		// 	font: poppinsBold,
-		// 	color: rgb(223 / 255, 74 / 255, 62 / 255),
-		// });
-		page.drawText(uid.toString(), {
-			x: uidXPosition,
-			y: 53,
-			size: 8,
-			font: poppinsBold,
-			color: rgb(223 / 255, 74 / 255, 62 / 255),
-		});
-
-		// Save the PDF to a buffer
-		const pdfBytes = await pdfDoc.save();
-
-
-		// Send base64 encoded PDF in JSON response
-		const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
-
+		// Convert PNG buffer to base64
+		const base64Image = buffer.toString('base64');
 
 		userData.isDownloaded = true;
-		userData.save();
+		await userData.save();
 
-		res.json({ statusCode: 200, data: pdfBase64, message: 'Successfully ID Card Generated' });
+		res.json({ statusCode: 200, data: base64Image, message: 'Successfully ID Card Generated' });
 	} catch (error) {
 		res.json({ statusCode: 400, message: error.message });
 	}
 });
-
 app.listen(3000, () => {
 	console.log('Server running on http://localhost:3000');
 });
