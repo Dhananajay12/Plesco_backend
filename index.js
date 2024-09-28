@@ -411,7 +411,7 @@ app.get('/generate-id/:id', async (req, res) => {
 		userData.isDownloaded = true;
 		await userData.save();
 
-		res.json({ statusCode: 200, data: base64Image, message: 'Successfully ID Card Generated' });
+		res.json({ statusCode: 200, data: { base64: base64Image, name: fullName }, message: 'Successfully ID Card Generated' });
 	} catch (error) {
 		res.json({ statusCode: 400, message: error.message });
 	}
