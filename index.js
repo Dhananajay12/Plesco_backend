@@ -342,8 +342,8 @@ app.get('/generate-id/:id', async (req, res) => {
 		const cardTemplatePath = path.join(__dirname, 'template.png');
 
 		const cardTemplateMetadata = await sharp(cardTemplatePath).metadata();
-		const cardWidth = 161;  // Set card width to 161
-		const cardHeight = 252;  // Set card height to 252
+		const cardWidth = 1346;  // Set card width to 161
+		const cardHeight = 2102;  // Set card height to 252
 
 
 		const response = await axios({
@@ -384,23 +384,23 @@ app.get('/generate-id/:id', async (req, res) => {
 		registerFont(poppinsBoldPath, { family: 'Poppins', weight: 'bold' });
 
 		// Draw the user's name
-		context.font = '12px Poppins';
+		context.font = '100px Poppins';
 		context.fillStyle = 'rgba(51, 42, 126, 1)'; // Name color
 		const fullName = `${firstName} ${lastName}`;
 		const nameWidth = context.measureText(fullName).width;
-		context.fillText(fullName, (cardWidth - nameWidth) / 2, 180);
+		context.fillText(fullName, (cardWidth - nameWidth) / 2, 1440);
 
 		// Draw the phone number
-		context.font = '9px Poppins';
+		context.font = '70px Poppins';
 		context.fillStyle = 'rgba(69, 71, 139, 1)'; // Phone color
 		const phoneWidth = context.measureText(phone).width;
-		context.fillText(phone, (cardWidth - phoneWidth) / 2, 195);
+		context.fillText(phone, (cardWidth - phoneWidth) / 2, 1550);
 
 		// Draw the UID
-		context.font = '8px Poppins';
+		context.font = '50px Poppins';
 		context.fillStyle = 'rgba(223, 74, 62, 1)'; // UID color
 		const uidWidth = context.measureText(uid.toString()).width;
-		context.fillText(uid.toString(), (cardWidth - uidWidth) / 2, 210);
+		context.fillText(uid.toString(), (cardWidth - uidWidth) / 2, 1640);
 
 		// Convert canvas to PNG
 		const buffer = canvas.toBuffer('image/jpeg');
