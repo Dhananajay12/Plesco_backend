@@ -358,16 +358,17 @@ app.get('/generate-id/:id', async (req, res) => {
 		const photoBuffer = Buffer.from(response.data, 'binary');
 
 		const resizedPhoto = await sharp(photoBuffer)
-			.resize(240, 300)
+			.resize(600, 700)
 			.toBuffer();
 
-		const left = (cardWidth - 100) / 2;
-		const top = (cardHeight - 160) / 2;
+		const left = (cardWidth - 600) / 2;
+		const top = (cardHeight - 950) / 2;
+
 
 		const whiteMargin = 22;
 
 		const cardImage = await sharp(cardTemplatePath)
-			.composite([{ input: resizedPhoto, top: 300, left: 230 }])
+			.composite([{ input: resizedPhoto, top: parseInt(top), left: parseInt(left) }])
 			.toBuffer();
 
 		// Create a canvas to draw the card
