@@ -108,6 +108,9 @@ app.post('/searchUserData', async (req, res) => {
 	try {
 		const { firstName, lastName, phone, email, dob, villageName, society, flatNumber, wing } = req.body;
 
+		let page = Number(req?.body?.page) || 0;
+		let limit = Number(req?.body?.limit) || 50;
+		let skip = limit * page;
 
 		// Build dynamic search conditions
 		let searchConditions = {};
@@ -124,17 +127,23 @@ app.post('/searchUserData', async (req, res) => {
 
 		// Query the database based on the search conditions
 		let users = [];
-
+		const totalDoc = await ParticipantUsers.countDocuments()
 		if (Object.keys(searchConditions).length > 0) {
-			users = await ParticipantUsers.find(searchConditions);
+			users = await ParticipantUsers.find(searchConditions).sort({ _id: -1 })
+				.limit(limit)
+				.skip(skip);
+
 			if (users.length === 0) {
 				throw new Error('Participant data not found');
 			}
 		} else {
-			users = await ParticipantUsers.find();
+			users = await ParticipantUsers.find().sort({ _id: -1 })
+				.limit(limit)
+				.skip(skip);;
 		}
+		
 
-		return res.json({ statusCode: 200, data: users, message: 'Successfully user data found' })
+		return res.json({ statusCode: 200, data: {users , totalDoc}, message: 'Successfully user data found' })
 
 	} catch (err) {
 		return res.json({ statusCode: 400, message: err.message })
