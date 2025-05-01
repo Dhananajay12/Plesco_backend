@@ -1,23 +1,24 @@
 const { Schema, default: mongoose } = require("mongoose");
 
 
-const userSchema = new Schema({
+const participantUserDataSchema = new Schema({
 	uid: { type: Number, required: true },
 	firstName: { type: String, required: true },
-	middleName: { type: String},
+	middleName: { type: String },
 	lastName: { type: String, required: true },
+	fatherFirstName: { type: String},
+	fatherMiddleName: { type: String },
+	fatherLastName: { type: String },
+	motherFirstName: { type: String },
+	motherMiddleName: { type: String },
+  motherLastName: { type: String },
 	phone: {
 		type: String,
 		required: true,
-		unique: true
 	},
-	isDownloaded:{
-		type:Boolean,
-		default:false
-	},
+	societyId: { type: Number },
 	photoURL: {
 		type: String,
-		required: true,
 	},
 	email: {
 		type: String,
@@ -29,7 +30,6 @@ const userSchema = new Schema({
 	},
 	villageName: {
 		type: String,
-		require: true
 	},
 	society: {
 		type: String,
@@ -43,24 +43,19 @@ const userSchema = new Schema({
 		type: String,
 		require: true
 	},
+	address:{
+		type: String,
+	},
 	gender: {
 		type: String,
 		require: true
 	},
-  ageGroup: {
+	ageGroup: {
 		type: String,
 		require: true
 	},
-	comment: {
-		type: String,
-	},
-	termsAgree: {
-		type: Boolean,
-		require: true
-	}
+});
 
-}, { timestamps: true })
+const participantUserData = mongoose.model('ParticipantUserData', participantUserDataSchema)
 
-const ParticipantUsers = mongoose.model('ParticipantUsers', userSchema)
-
-module.exports = ParticipantUsers
+module.exports = participantUserData

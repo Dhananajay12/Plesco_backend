@@ -9,12 +9,13 @@ const cors = require("cors");
 const fontkit = require('@pdf-lib/fontkit');
 const { connections } = require('./connection');
 const { configDotenv } = require('dotenv');
-const ParticipantUsers = require('./models/UserData');
+const ParticipantEntry = require('./models/GameEntry');
 const { default: axios } = require('axios');
 const AutoIncrement = require('./models/AutoIncrement');
 const XLSX = require('xlsx');
 const User = require('./models/User');
 const { createCanvas, loadImage, registerFont } = require('canvas');
+const participantUserData = require('./models/ParticipantUserData');
 
 app.use(express.static('public')); // Serve static files for client
 app.use(express.json());
@@ -26,10 +27,6 @@ connections();
 app.get('/', (req, res) => {
 	res.json({ success: true, status: 'success' })
 })
-
-
-
-
 
 const autoIncrementLeadId = async (autoIncField, start = 10000) => {
 	const incrementData = await AutoIncrement.findOneAndUpdate(
@@ -61,7 +58,7 @@ const autoIncrementLeadId = async (autoIncField, start = 10000) => {
 app.post('/login', async (req, res) => {
 	try {
 		const { userName, password } = req.body;
-		
+
 		const user = await User.findOne({ userName, password })
 
 		if (user) {
@@ -75,28 +72,94 @@ app.post('/login', async (req, res) => {
 	}
 });
 
+async function createParticipantUser(userData, societyId = '') {
+
+	const uid = await autoIncrementLeadId("userId");
+
+	const newUser = await participantUserData.create({ ...userData, uid, societyId });
+	return newUser._id;
+}
+
 
 app.post('/createParticipant', async (req, res) => {
 	try {
-		const { firstName, lastName, phone, email, dob, villageName, society, flatNumber, wing, photoURL, gender, ageGroup } = req.body;
+
+		if (req.body?.event === 'dandiya'){
+
+			const { firstName, lastName, phone, email, dob, villageName, society, flatNumber, wing, photoURL, gender, ageGroup  } = req.body;
+
+			if (!firstName?.trim() || !lastName?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !villageName?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim() || !photoURL?.trim() || !gender?.trim() || !ageGroup?.trim()) {
+				throw new Error('All fields must be filled')
+			}
+
+			const data = await ParticipantEntry.findOne({ phone: req.body.phone })
+
+			if (data) {
+				throw new Error("Number is already registered")
+			}
+
+			const uid = await autoIncrementLeadId("userId")
 
 
-		if (!firstName?.trim() || !lastName?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !villageName?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim() || !photoURL?.trim() || !gender?.trim() || !ageGroup?.trim()) {
-			throw new Error('All fields must be filled')
+			const newUser = await ParticipantEntry.create({ ...req.body, uid });
+
+			return res.json({ statusCode: 200, data: newUser, message: 'Successfully Submitted' })
+
+
+		} else if (req.body?.event === 'plesco'){
+
+			const { firstName, lastName, phone, email, dob, address, society, flatNumber, wing, photoURL, gender, ageGroup } = req.body.user;
+			console.log('Data0')
+			if (!firstName?.trim() || !lastName?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !address?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim() || !photoURL?.trim() || !gender?.trim() || !ageGroup?.trim()) {
+				throw new Error('All fields must be filled')
+			}
+
+			const { user, ...rest } = req.body;
+
+
+			const multiplayerGame = ['Cricket', 'Badmintion', 'Football', 'Table Tennis']
+
+			let societyId = ''
+
+			if (multiplayerGame.includes(req?.body?.gameName)){
+				societyId = await  autoIncrementLeadId("societyId", 200000);
+				user.photoURL = ''
+			}
+
+
+			// Step 1: Create main user
+			const userId = user ? await createParticipantUser(user, societyId) : null;
+
+			// Step 2: Handle all players dynamically
+			const playerFields = {};
+			for (let key in rest) {
+				if (key.startsWith('player') && rest[key]) {
+					rest[key].gender = user.gender;
+					const playerId = await createParticipantUser(rest[key], societyId);
+					playerFields[key] = playerId;
+				}
+			}
+
+			// Step 3: Other fields like registerationYear, gameName, teamName etc
+			const entryOtherData = {};
+			for (let key in rest) {
+				if (!key.startsWith('player')) {
+					entryOtherData[key] = rest[key];
+				}
+			}
+
+
+			// Step 4: Create the Entry
+			const newEntry = await ParticipantEntry.create({
+				...entryOtherData,
+				user: userId,
+				...playerFields,
+				multiplayerGame: multiplayerGame.includes(req?.body?.gameName) ? true : false,
+				photoURL: multiplayerGame.includes(req?.body?.gameName) ? req?.body?.photoURL : ''
+			});
+
+			return res.json({ statusCode: 200, data: newEntry, message: 'Successfully Submitted' })
 		}
-
-		const data = await ParticipantUsers.findOne({ phone: phone })
-
-		if (data) {
-			throw new Error("Number is already registered")
-		}
-		const uid = await autoIncrementLeadId("userId")
-
-		console.log(uid)
-
-		const newUser = await ParticipantUsers.create({ ...req.body, uid });
-
-		return res.json({ statusCode: 200, data: newUser, message: 'Successfully Submitted' })
 
 	} catch (err) {
 		return res.json({ statusCode: 400, message: err.message })
@@ -127,9 +190,9 @@ app.post('/searchUserData', async (req, res) => {
 
 		// Query the database based on the search conditions
 		let users = [];
-		const totalDoc = await ParticipantUsers.countDocuments()
+		const totalDoc = await ParticipantEntry.countDocuments({ event: 'dandiya' })
 		if (Object.keys(searchConditions).length > 0) {
-			users = await ParticipantUsers.find(searchConditions).sort({ _id: -1 })
+			users = await ParticipantEntry.find({...searchConditions , event:'dandiya'}).populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10').sort({ _id: -1 })
 				.limit(limit)
 				.skip(skip);
 
@@ -137,11 +200,11 @@ app.post('/searchUserData', async (req, res) => {
 				throw new Error('Participant data not found');
 			}
 		} else {
-			users = await ParticipantUsers.find().sort({ _id: -1 })
+			users = await ParticipantEntry.find({ event:'dandiya'}).populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10').sort({ _id: -1 })
 				.limit(limit)
-				.skip(skip);;
+				.skip(skip);
 		}
-		
+
 
 		return res.json({ statusCode: 200, data: {users , totalDoc}, message: 'Successfully user data found' })
 
@@ -151,11 +214,69 @@ app.post('/searchUserData', async (req, res) => {
 })
 
 
+
+app.post('/searchParticipantEntries', async (req, res) => {
+	try {
+		const { firstName, lastName, phone, email, dob, villageName, society, flatNumber, wing, registrationYear, teamName, event, socity, socityId } = req.body;
+
+		let page = Number(req.body.page) || 0;
+		let limit = Number(req.body.limit) || 50;
+		let skip = limit * page;
+
+		// Build dynamic search conditions
+		let searchConditions = {};
+
+		if (registrationYear) searchConditions.registrationYear = registrationYear;
+		if (teamName) searchConditions.teamName = { $regex: teamName, $options: 'i' };
+		if (event) searchConditions.event = { $regex: event, $options: 'i' };
+		if (socity) searchConditions.socity = { $regex: socity, $options: 'i' };
+		if (socityId) searchConditions.socityId = { $regex: socityId, $options: 'i' };
+
+		// Find participants based on search conditions first
+		let query = ParticipantEntry.find(searchConditions)
+			.populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10')
+			.sort({ _id: -1 })
+			.limit(limit)
+			.skip(skip);
+
+		let users = await query.exec();
+		const totalDoc = await ParticipantEntry.countDocuments(searchConditions);
+
+		// Now, filter based on populated `user` fields if required
+		if (firstName || lastName || phone || email || dob || villageName || society || flatNumber || wing) {
+			users = users.filter(p => {
+				const u = p.user || {};
+				return (
+					(firstName ? (u.firstName || '').toLowerCase().includes(firstName.toLowerCase()) : true) &&
+					(lastName ? (u.lastName || '').toLowerCase().includes(lastName.toLowerCase()) : true) &&
+					(phone ? (u.phone || '').toLowerCase().includes(phone.toLowerCase()) : true) &&
+					(email ? (u.email || '').toLowerCase().includes(email.toLowerCase()) : true) &&
+					(dob ? (u.dob || '').toLowerCase().includes(dob.toLowerCase()) : true) &&
+					(villageName ? (u.villageName || '').toLowerCase().includes(villageName.toLowerCase()) : true) &&
+					(society ? (u.society || '').toLowerCase().includes(society.toLowerCase()) : true) &&
+					(flatNumber ? (u.flatNumber || '').toLowerCase().includes(flatNumber.toLowerCase()) : true) &&
+					(wing ? (u.wing || '').toLowerCase().includes(wing.toLowerCase()) : true)
+				);
+			});
+		}
+
+		if (users.length === 0) {
+			throw new Error('Participant data not found');
+		}
+
+		return res.json({ statusCode: 200, data: { users, totalDoc }, message: 'Successfully found participant entries' });
+
+	} catch (err) {
+		return res.json({ statusCode: 400, message: err.message });
+	}
+});
+
+
 app.get('/download-excel', async (req, res) => {
 	// Create a new workbook
 	try {
 
-		const data = await ParticipantUsers.find();
+		const data = await ParticipantEntry.find();
 
 		const userData = data.map((item,index) => {
 			return {
@@ -209,7 +330,7 @@ app.post('/generate-id', async (req, res) => {
 
 		const { generateIds } = req.body;
 
-		const usersData = await ParticipantUsers.find({ uid: { $in: generateIds } });
+		const usersData = await ParticipantEntry.find({ uid: { $in: generateIds } });
 
 		if (!usersData || usersData.length === 0) {
 			throw new Error('Users not found');
@@ -343,7 +464,7 @@ app.post('/generate-id', async (req, res) => {
 
 app.get('/generate-id/:id', async (req, res) => {
 	try {
-		const userData = await ParticipantUsers.findById(req.params.id);
+		const userData = await ParticipantEntry.findById(req.params.id);
 
 		if (!userData) throw new Error("User not found");
 
@@ -426,6 +547,116 @@ app.get('/generate-id/:id', async (req, res) => {
 		res.json({ statusCode: 400, message: error.message });
 	}
 });
+
+
+
+app.get('/plesco-generate-id/:id', async (req, res) => {
+	try {
+		const participantEntry = await ParticipantEntry.findById(req.params.id)
+			.populate('user')
+			.populate('player1')
+			.populate('player2')
+			.populate('player3')
+			.populate('player4')
+			.populate('player5')
+			.populate('player6')
+			.populate('player7')
+			.populate('player8')
+			.populate('player9')
+			.populate('player10');
+
+		if (!participantEntry) throw new Error("Participant Entry not found");
+
+		// Collect all users
+		const users = [];
+
+		if (participantEntry.user) users.push(participantEntry.user);
+		for (let i = 1; i <= 10; i++) {
+			const player = participantEntry[`player${i}`];
+			if (player) users.push(player);
+		}
+
+		const results = [];
+
+		for (const userData of users) {
+			const { uid, firstName, lastName, phone } = userData;
+
+			const cardTemplatePath = path.join(__dirname, 'template.png');
+			const cardWidth = 1346;
+			const cardHeight = 2102;
+
+			// Fetch photo
+			const response = await axios({
+				url: participantEntry.multiplayerGame ? participantEntry.photoURL: participantEntry?.user?.photoURL,
+				responseType: 'arraybuffer',
+			}).then(res => res).catch(err => err);
+
+			if (response?.response?.status == 404) {
+				throw new Error('Image profile URL not found in database');
+			}
+
+			const photoBuffer = Buffer.from(response.data, 'binary');
+
+			// Resize photo
+			const resizedPhoto = await sharp(photoBuffer)
+				.resize(600, 700)
+				.toBuffer();
+
+			const left = (cardWidth - 600) / 2;
+			const top = (cardHeight - 950) / 2;
+
+			// Composite photo onto template
+			const cardImage = await sharp(cardTemplatePath)
+				.composite([{ input: resizedPhoto, top: parseInt(top), left: parseInt(left) }])
+				.toBuffer();
+
+			// Canvas setup
+			const canvas = createCanvas(cardWidth, cardHeight);
+			const context = canvas.getContext('2d');
+
+			const cardImageLoaded = await loadImage(cardImage);
+			context.drawImage(cardImageLoaded, 0, 0, cardWidth, cardHeight);
+
+			// Register Font
+			const poppinsBoldPath = path.join(__dirname, 'Poppins-Bold.ttf');
+			registerFont(poppinsBoldPath, { family: 'Poppins', weight: 'bold' });
+
+			// Draw Name
+			context.font = '100px Poppins';
+			context.fillStyle = 'rgba(51, 42, 126, 1)';
+			const fullName = `${firstName} ${lastName}`;
+			const nameWidth = context.measureText(fullName).width;
+			context.fillText(fullName, (cardWidth - nameWidth) / 2, 1440);
+
+			// Draw Phone
+			context.font = '70px Poppins';
+			context.fillStyle = 'rgba(69, 71, 139, 1)';
+			const phoneWidth = context.measureText(phone).width;
+			context.fillText(phone, (cardWidth - phoneWidth) / 2, 1550);
+
+			// Draw UID
+			context.font = '50px Poppins';
+			context.fillStyle = 'rgba(223, 74, 62, 1)';
+			const uidWidth = context.measureText(uid.toString()).width;
+			context.fillText(uid.toString(), (cardWidth - uidWidth) / 2, 1640);
+
+			// Convert to base64
+			const buffer = canvas.toBuffer('image/jpeg');
+			const base64Image = buffer.toString('base64');
+
+			results.push({ base64: base64Image, name: fullName });
+		}
+
+		participantEntry.isDownloaded = true;
+
+		await participantEntry.save();
+
+		res.json({ statusCode: 200, data: results, message: 'Successfully ID Cards Generated' });
+	} catch (error) {
+		res.json({ statusCode: 400, message: error.message });
+	}
+});
+
 app.listen(3000, () => {
 	console.log('Server running on http://localhost:3000');
 });
