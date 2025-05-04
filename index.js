@@ -53,8 +53,6 @@ const autoIncrementLeadId = async (autoIncField, start = 10000) => {
 };
 
 
-
-
 app.post('/login', async (req, res) => {
 	try {
 		const { userName, password } = req.body;
@@ -84,9 +82,9 @@ async function createParticipantUser(userData, societyId = '') {
 app.post('/createParticipant', async (req, res) => {
 	try {
 
-		if (req.body?.event === 'dandiya'){
+		if (req.body?.event === 'dandiya') {
 
-			const { firstName, lastName, phone, email, dob, villageName, society, flatNumber, wing, photoURL, gender, ageGroup  } = req.body;
+			const { firstName, lastName, phone, email, dob, villageName, society, flatNumber, wing, photoURL, gender, ageGroup } = req.body;
 
 			if (!firstName?.trim() || !lastName?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !villageName?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim() || !photoURL?.trim() || !gender?.trim() || !ageGroup?.trim()) {
 				throw new Error('All fields must be filled')
@@ -106,10 +104,9 @@ app.post('/createParticipant', async (req, res) => {
 			return res.json({ statusCode: 200, data: newUser, message: 'Successfully Submitted' })
 
 
-		} else if (req.body?.event === 'plesco'){
+		} else if (req.body?.event === 'plesco') {
 
 			const { firstName, lastName, phone, email, dob, address, society, flatNumber, wing, photoURL, gender, ageGroup } = req.body.user;
-			console.log('Data0')
 			if (!firstName?.trim() || !lastName?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !address?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim() || !photoURL?.trim() || !gender?.trim() || !ageGroup?.trim()) {
 				throw new Error('All fields must be filled')
 			}
@@ -117,12 +114,12 @@ app.post('/createParticipant', async (req, res) => {
 			const { user, ...rest } = req.body;
 
 
-			const multiplayerGame = ['Cricket', 'Badmintion', 'Football', 'Table Tennis']
+			const multiplayerGame = ['Cricket', 'Badmintion', 'Football']
 
 			let societyId = ''
 
-			if (multiplayerGame.includes(req?.body?.gameName)){
-				societyId = await  autoIncrementLeadId("societyId", 200000);
+			if (multiplayerGame.includes(req?.body?.gameName)) {
+				societyId = await autoIncrementLeadId("societyId", 200000);
 				user.photoURL = ''
 			}
 
@@ -192,7 +189,7 @@ app.post('/searchUserData', async (req, res) => {
 		let users = [];
 		const totalDoc = await ParticipantEntry.countDocuments({ event: 'dandiya' })
 		if (Object.keys(searchConditions).length > 0) {
-			users = await ParticipantEntry.find({...searchConditions , event:'dandiya'}).populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10').sort({ _id: -1 })
+			users = await ParticipantEntry.find({ ...searchConditions, event: 'dandiya' }).populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10').sort({ _id: -1 })
 				.limit(limit)
 				.skip(skip);
 
@@ -200,13 +197,13 @@ app.post('/searchUserData', async (req, res) => {
 				throw new Error('Participant data not found');
 			}
 		} else {
-			users = await ParticipantEntry.find({ event:'dandiya'}).populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10').sort({ _id: -1 })
+			users = await ParticipantEntry.find({ event: 'dandiya' }).populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10').sort({ _id: -1 })
 				.limit(limit)
 				.skip(skip);
 		}
 
 
-		return res.json({ statusCode: 200, data: {users , totalDoc}, message: 'Successfully user data found' })
+		return res.json({ statusCode: 200, data: { users, totalDoc }, message: 'Successfully user data found' })
 
 	} catch (err) {
 		return res.json({ statusCode: 400, message: err.message })
@@ -278,7 +275,7 @@ app.get('/download-excel', async (req, res) => {
 
 		const data = await ParticipantEntry.find();
 
-		const userData = data.map((item,index) => {
+		const userData = data.map((item, index) => {
 			return {
 				srNo: index + 1,
 				uid: item.uid,
@@ -587,7 +584,7 @@ app.get('/plesco-generate-id/:id', async (req, res) => {
 
 			// Fetch photo
 			const response = await axios({
-				url: participantEntry.multiplayerGame ? participantEntry.photoURL: participantEntry?.user?.photoURL,
+				url: participantEntry.multiplayerGame ? participantEntry.photoURL : participantEntry?.user?.photoURL,
 				responseType: 'arraybuffer',
 			}).then(res => res).catch(err => err);
 
