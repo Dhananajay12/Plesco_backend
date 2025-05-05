@@ -578,9 +578,9 @@ app.get('/plesco-generate-id/:id', async (req, res) => {
 		for (const userData of users) {
 			const { uid, firstName, lastName, phone } = userData;
 
-			const cardTemplatePath = path.join(__dirname, 'template.png');
-			const cardWidth = 1346;
-			const cardHeight = 2102;
+			const cardTemplatePath = path.join(__dirname, 'plesco.png');
+			const cardWidth = 449;
+			const cardHeight = 700;
 
 			// Fetch photo
 			const response = await axios({
@@ -596,11 +596,11 @@ app.get('/plesco-generate-id/:id', async (req, res) => {
 
 			// Resize photo
 			const resizedPhoto = await sharp(photoBuffer)
-				.resize(600, 700)
+				.resize(200, 200)
 				.toBuffer();
 
-			const left = (cardWidth - 600) / 2;
-			const top = (cardHeight - 950) / 2;
+			const left = (cardWidth - 200) / 2;
+			const top = (cardHeight - 300) / 2;
 
 			// Composite photo onto template
 			const cardImage = await sharp(cardTemplatePath)
@@ -623,19 +623,19 @@ app.get('/plesco-generate-id/:id', async (req, res) => {
 			context.fillStyle = 'rgba(51, 42, 126, 1)';
 			const fullName = `${firstName} ${lastName}`;
 			const nameWidth = context.measureText(fullName).width;
-			context.fillText(fullName, (cardWidth - nameWidth) / 2, 1440);
+			context.fillText(fullName, (cardWidth - nameWidth) / 2, 300);
 
 			// Draw Phone
 			context.font = '70px Poppins';
 			context.fillStyle = 'rgba(69, 71, 139, 1)';
 			const phoneWidth = context.measureText(phone).width;
-			context.fillText(phone, (cardWidth - phoneWidth) / 2, 1550);
+			context.fillText(phone, (cardWidth - phoneWidth) / 2, 300);
 
 			// Draw UID
-			context.font = '50px Poppins';
+			context.font = '20px Poppins';
 			context.fillStyle = 'rgba(223, 74, 62, 1)';
 			const uidWidth = context.measureText(uid.toString()).width;
-			context.fillText(uid.toString(), (cardWidth - uidWidth) / 2, 1640);
+			context.fillText(uid.toString(), (cardWidth - uidWidth) / 2, 500);
 
 			// Convert to base64
 			const buffer = canvas.toBuffer('image/jpeg');
