@@ -63,7 +63,6 @@ const participantEntry = new Schema({
 	},
 	termsAgree: {
 		type: Boolean,
-		require: true
 	},
 }, { timestamps: true })
 
