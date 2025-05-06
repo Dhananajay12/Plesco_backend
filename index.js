@@ -740,13 +740,13 @@ app.get('/plesco-generate-id/:id', async (req, res) => {
 			context.fillText(fullName, (cardWidth - nameWidth) / 2, 450);
 
 			// Draw Phone
-			context.font = '16px Poppins';
+			context.font = '20px Poppins';
 			context.fillStyle = 'rgba(69, 71, 139, 1)';
 			const phoneWidth = context.measureText(phone).width;
 			context.fillText(phone, (cardWidth - phoneWidth) / 2, 540);
 
 			// Draw UID
-			context.font = '16px Poppins';
+			context.font = '20px Poppins';
 			context.fillStyle = 'rgba(223, 74, 62, 1)';
 			const uidWidth = context.measureText(uid.toString()).width;
 			context.fillText(uid.toString(), (cardWidth - uidWidth) / 1.9, 500);
