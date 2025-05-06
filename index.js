@@ -283,50 +283,150 @@ app.post('/searchParticipantEntries', async (req, res) => {
 });
 
 
-app.get('/download-excel', async (req, res) => {
+// app.get('/download-excel/:event', async (req, res) => {
+// 	// Create a new workbook
+// 	try {
+
+// 		const data = await ParticipantEntry.find({event:req.params.event});
+
+// 		const userData = data.map((item, index) => {
+// 			return {
+// 				srNo: index + 1,
+// 				uid: item.uid,
+// 				firstName: item.firstName,
+// 				lastName: item.lastName,
+// 				phone: item.phone,
+// 				photoURL: item.photoURL,
+// 				email: item.email,
+// 				dob: item.dob,
+// 				villageName: item.villageName,
+// 				society: item.society,
+// 				flatNumber: item.flatNumber,
+// 				wing: item.wing,
+// 				gender: item.gender,
+// 				ageGroup: item.ageGroup,
+// 			}
+// 		})
+
+// 		const workbook = XLSX.utils.book_new();
+
+// 		// Convert the data array to a worksheet
+// 		const worksheet = XLSX.utils.json_to_sheet(userData);
+
+// 		// Append the worksheet to the workbook
+// 		XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+
+// 		// Generate the Excel file as a buffer
+// 		const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+
+// 		// Convert the buffer to a base64 string
+// 		const excelBase64 = excelBuffer.toString('base64');
+
+// 		// Send the base64 encoded Excel data as part of the JSON response
+// 		res.json({
+// 			statusCode: 200,
+// 			data: excelBase64,
+// 			message: 'Successfully generated Excel data'
+// 		});
+
+// 	} catch (err) {
+// 		res.json({ statusCode: 400, message: err.message });
+// 	}
+// });
+
+
+
+app.get('/download-excel/:event', async (req, res) => {
 	// Create a new workbook
 	try {
 
-		const data = await ParticipantEntry.find();
+		const data = await ParticipantEntry.find({ event: req.params.event }).populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10')
 
-		const userData = data.map((item, index) => {
-			return {
-				srNo: index + 1,
-				uid: item.uid,
-				firstName: item.firstName,
-				lastName: item.lastName,
-				phone: item.phone,
-				photoURL: item.photoURL,
-				email: item.email,
-				dob: item.dob,
-				villageName: item.villageName,
-				society: item.society,
-				flatNumber: item.flatNumber,
-				wing: item.wing,
-				gender: item.gender,
-				ageGroup: item.ageGroup,
-			}
-		})
+		let userData = []
 
-		const workbook = XLSX.utils.book_new();
+		if (req.params.event === 'dandiya') {
+			userData = data.map((item, index) => {
+				return {
+					srNo: index + 1,
+					uid: item.user.uid,
+					firstName: item.user.firstName,
+					lastName: item.user.lastName,
+					phone: item.user.phone,
+					photoURL: item.user.photoURL,
+					email: item.user.email,
+					dob: item.user.dob,
+					villageName: item.user.villageName,
+					society: item.user.socity,
+					flatNumber: item.user.flatNumber,
+					wing: item.user.wing,
+					gender: item.user.gender,
+					ageGroup: item.user.ageGroup,
+				}
+			})
+		} else if (req.params.event === 'plesco') {
+			userData = data.map((item, index) => {
+				const base = {
+					srNo: index + 1,
+					uid: item.user?.uid || '',
+					"firstName (player/captain)": item.user?.firstName || '',
+					"lastName (player/captain)": item.user?.lastName || '',
+					phone: item.user?.phone || '',
+					email: item.user?.email || '',
+					dob: item.user?.dob || '',
+					gender: item.user?.gender || '',
+					ageGroup: item.user?.ageGroup || '',
+					villageName: item.user?.villageName || '',
+					society: item.user?.society || '',
+					flatNumber: item.user?.flatNumber || '',
+					wing: item.user?.wing || '',
+					teamName: item.teamName || '',
+					gameName: item.gameName || '',
+					event: item.event || '',
+					registerationYear: item.registerationYear || '',
+					comment: item.comment || '',
+					termsAgree: item.termsAgree ? 'Yes' : 'No',
+				};
 
-		// Convert the data array to a worksheet
+				// Add player1 to player10 (if exists), in short form
+				for (let i = 1; i <= 10; i++) {
+					const player = item[`player${i}`];
+					if (player) {
+						base[`player${i}_uid`] = player.uid || '';
+						base[`player${i}_firstName`] = player.firstName || '';
+						base[`player${i}_middleName`] = player.middleName || '';
+						base[`player${i}_lastName`] = player.lastName || '';
+						base[`player${i}_fatherFirstName`] = player.fatherFirstName || '';
+						base[`player${i}_fatherMiddleName`] = player.fatherMiddleName || '';
+						base[`player${i}_fatherLastName`] = player.fatherLastName || '';
+						base[`player${i}_motherFirstName`] = player.motherFirstName || '';
+						base[`player${i}_motherMiddleName`] = player.motherMiddleName || '';
+						base[`player${i}_motherLastName`] = player.motherLastName || '';
+						base[`player${i}_phone`] = player.phone || '';
+						base[`player${i}_societyId`] = player.societyId || '';
+						base[`player${i}_email`] = player.email || '';
+						base[`player${i}_dob`] = player.dob || '';
+						base[`player${i}_society_name`] = player.society || '';
+						base[`player${i}_flatNumber`] = player.flatNumber || '';
+						base[`player${i}_wing`] = player.wing || '';
+					}
+				}
+
+				return base
+			})
+		}
+
+		console.log(userData)
 		const worksheet = XLSX.utils.json_to_sheet(userData);
+		const csv = XLSX.utils.sheet_to_csv(worksheet);
 
-		// Append the worksheet to the workbook
-		XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+		// Convert CSV string to base64
+		const csvBase64 = Buffer.from(csv, 'utf8').toString('base64');
 
-		// Generate the Excel file as a buffer
-		const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
-
-		// Convert the buffer to a base64 string
-		const excelBase64 = excelBuffer.toString('base64');
-
-		// Send the base64 encoded Excel data as part of the JSON response
+		// Respond with base64 encoded CSV
 		res.json({
 			statusCode: 200,
-			data: excelBase64,
-			message: 'Successfully generated Excel data'
+			data: csvBase64,
+			message: 'Successfully generated CSV data'
 		});
 
 	} catch (err) {
@@ -614,7 +714,7 @@ app.get('/plesco-generate-id/:id', async (req, res) => {
 				.toBuffer();
 
 			const left = (cardWidth - 200) / 2;
-			const top = (cardHeight - 350) / 2;
+			const top = (cardHeight - 330) / 2;
 
 			// Composite photo onto template
 			const cardImage = await sharp(cardTemplatePath)
@@ -649,7 +749,7 @@ app.get('/plesco-generate-id/:id', async (req, res) => {
 			context.font = '16px Poppins';
 			context.fillStyle = 'rgba(223, 74, 62, 1)';
 			const uidWidth = context.measureText(uid.toString()).width;
-			context.fillText(uid.toString(), (cardWidth - uidWidth) / 2.32, 563);
+			context.fillText(uid.toString(), (cardWidth - uidWidth) / 1.9, 500);
 
 			// Convert to base64
 			const buffer = canvas.toBuffer('image/jpeg');

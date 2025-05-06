@@ -15,7 +15,3 @@ function connections() {
 
 
 module.exports.connections = connections
-
-
-
-
