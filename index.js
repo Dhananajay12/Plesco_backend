@@ -415,7 +415,6 @@ app.get('/download-excel/:event', async (req, res) => {
 			})
 		}
 
-		console.log(userData)
 		const worksheet = XLSX.utils.json_to_sheet(userData);
 		const csv = XLSX.utils.sheet_to_csv(worksheet);
 
