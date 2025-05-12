@@ -234,42 +234,43 @@ app.post('/searchParticipantEntries', async (req, res) => {
 		let limit = Number(req.body.limit) || 50;
 		let skip = limit * page;
 
-		// Build dynamic search conditions
-		let searchConditions = {};
+		// Step 1: Build user filter if needed
+		let userFilter = {};
+		if (firstName) userFilter.firstName = { $regex: firstName.trim(), $options: 'i' };
+		if (lastName) userFilter.lastName = { $regex: lastName.trim(), $options: 'i' };
+		if (phone) userFilter.phone = { $regex: phone.trim(), $options: 'i' };
+		if (email) userFilter.email = { $regex: email, $options: 'i' };
+		if (dob) userFilter.dob = { $regex: dob, $options: 'i' };
+		if (villageName) userFilter.villageName = { $regex: villageName, $options: 'i' };
+		if (society) userFilter.society = { $regex: society.trim(), $options: 'i' };
+		if (flatNumber) userFilter.flatNumber = { $regex: flatNumber, $options: 'i' };
+		if (wing) userFilter.wing = { $regex: wing, $options: 'i' };
 
+		let userIds = [];
+		if (Object.keys(userFilter).length > 0) {
+			const matchedUsers = await participantUserData.find(userFilter).select('_id');
+			userIds = matchedUsers.map(u => u._id);
+			if (userIds.length === 0) {
+				return res.json({ statusCode: 200, data: { users: [], totalDoc: 0 }, message: 'No matching users found' });
+			}
+		}
+
+		// Step 2: Build ParticipantEntry search conditions
+		let searchConditions = {};
 		if (registrationYear) searchConditions.registrationYear = registrationYear;
 		if (teamName) searchConditions.teamName = { $regex: teamName, $options: 'i' };
 		if (event) searchConditions.event = { $regex: event, $options: 'i' };
 		if (socity) searchConditions.socity = { $regex: socity, $options: 'i' };
 		if (socityId) searchConditions.socityId = { $regex: socityId, $options: 'i' };
+		if (userIds.length > 0) searchConditions.user = { $in: userIds };
 
-		// Find participants based on search conditions first
-		let query = ParticipantEntry.find(searchConditions)
-			.populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10')
-			.sort({ _id: -1 })
-			.limit(limit)
-			.skip(skip);
-
-		let users = await query.exec();
 		const totalDoc = await ParticipantEntry.countDocuments(searchConditions);
 
-		// Now, filter based on populated `user` fields if required
-		if (firstName || lastName || phone || email || dob || villageName || society || flatNumber || wing) {
-			users = users.filter(p => {
-				const u = p.user || {};
-				return (
-					(firstName ? (u.firstName || '').toLowerCase().includes(firstName.toLowerCase()) : true) &&
-					(lastName ? (u.lastName || '').toLowerCase().includes(lastName.toLowerCase()) : true) &&
-					(phone ? (u.phone || '').toLowerCase().includes(phone.toLowerCase()) : true) &&
-					(email ? (u.email || '').toLowerCase().includes(email.toLowerCase()) : true) &&
-					(dob ? (u.dob || '').toLowerCase().includes(dob.toLowerCase()) : true) &&
-					(villageName ? (u.villageName || '').toLowerCase().includes(villageName.toLowerCase()) : true) &&
-					(society ? (u.society || '').toLowerCase().includes(society.toLowerCase()) : true) &&
-					(flatNumber ? (u.flatNumber || '').toLowerCase().includes(flatNumber.toLowerCase()) : true) &&
-					(wing ? (u.wing || '').toLowerCase().includes(wing.toLowerCase()) : true)
-				);
-			});
-		}
+		let users = await ParticipantEntry.find(searchConditions)
+			.populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10')
+			.sort({ _id: -1 })
+			.skip(skip)
+			.limit(limit);
 
 		if (users.length === 0) {
 			throw new Error('Participant data not found');
