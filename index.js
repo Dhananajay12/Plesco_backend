@@ -258,9 +258,9 @@ app.post('/searchParticipantEntries', async (req, res) => {
 		// Step 2: Build ParticipantEntry search conditions
 		let searchConditions = {};
 		if (registrationYear) searchConditions.registrationYear = registrationYear;
-		if (teamName) searchConditions.teamName = { $regex: teamName, $options: 'i' };
+		if (teamName) searchConditions.teamName = { $regex: teamName.trim(), $options: 'i' };
 		if (event) searchConditions.event = { $regex: event, $options: 'i' };
-		if (socity) searchConditions.socity = { $regex: socity, $options: 'i' };
+		if (socity) searchConditions.socity = { $regex: socity.trim(), $options: 'i' };
 		if (socityId) searchConditions.socityId = { $regex: socityId, $options: 'i' };
 		if (userIds.length > 0) searchConditions.user = { $in: userIds };
 
