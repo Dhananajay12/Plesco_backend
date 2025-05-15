@@ -120,10 +120,10 @@ app.post('/createParticipant', async (req, res) => {
 
 		} else if (req.body?.event === 'plesco') {
 
-			const { firstName, lastName, phone, email, dob, address, society, flatNumber, wing, photoURL, gender, ageGroup } = req.body.user;
-			if (!firstName?.trim() || !lastName?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !address?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim() || !photoURL?.trim() || !gender?.trim() || !ageGroup?.trim()) {
-				throw new Error('All fields must be filled')
-			}
+			// const { firstName, lastName, phone, email, dob, address, society, flatNumber, wing, photoURL, gender, ageGroup } = req.body.user;
+			// if (!firstName?.trim() || !lastName?.trim() || !phone?.trim() || !email?.trim() || !dob?.trim() || !address?.trim() || !society?.trim() || !flatNumber?.trim() || !wing?.trim() || !photoURL?.trim() || !gender?.trim() || !ageGroup?.trim()) {
+			// 	throw new Error('All fields must be filled')
+			// }
 
 			const { user, ...rest } = req.body;
 
