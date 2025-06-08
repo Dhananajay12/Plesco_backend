@@ -16,7 +16,7 @@ const XLSX = require('xlsx');
 const User = require('./models/User');
 const { createCanvas, loadImage, registerFont } = require('canvas');
 const participantUserData = require('./models/ParticipantUserData');
-
+const puppeteer = require('puppeteer');
 app.use(express.static('public')); // Serve static files for client
 app.use(express.json());
 app.use(cors());
