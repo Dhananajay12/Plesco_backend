@@ -6,6 +6,9 @@ const path = require('path');
 const fsPromises = require('fs').promises;
 const app = express();
 const cors = require("cors");
+const crypto = require("crypto");
+
+
 const fontkit = require('@pdf-lib/fontkit');
 const { connections } = require('./connection');
 const { configDotenv } = require('dotenv');
@@ -16,6 +19,8 @@ const XLSX = require('xlsx');
 const User = require('./models/User');
 const { createCanvas, loadImage, registerFont } = require('canvas');
 const participantUserData = require('./models/ParticipantUserData');
+const DandiyaEvent = require('./models/DandiyaEvent');
+
 app.use(express.static('public')); // Serve static files for client
 app.use(express.json());
 app.use(cors());
@@ -26,7 +31,6 @@ connections();
 app.get('/', (req, res) => {
 	res.json({ success: true, status: 'success' })
 })
-
 
 
 
@@ -96,6 +100,119 @@ async function createParticipantUser(userData, societyId = '') {
 	return updatedUser._id;
 }
 
+
+app.get("/getDandiyaUser/:uid", async (req, res) => {
+	try {
+		const data = await DandiyaEvent.findOne({
+			uid: req.params.uid,
+		})
+
+		if (!data) {
+			throw new Error("Participant data not found")
+		}
+		return res.json({ statusCode: 200, data: data, message: 'Successfully Submitted' })
+	} catch (err) {
+		return res.json({ statusCode: 400, message: err.message })
+	}
+})
+
+app.get("/getDandiyaUser/dandiya/:uid/:phone", async (req, res) => {
+	try {
+		const data = await DandiyaEvent.findOne({
+			uid: req.params.uid,
+			phone: req.params.phone
+		})
+
+		if (!data) {
+			throw new Error("Participant data not found")
+		}
+		return res.json({ statusCode: 200, data: data, message: 'Successfully Submitted' })
+	} catch (err) {
+		return res.json({ statusCode: 400, message: err.message })
+	}
+})
+
+
+app.put("/updateDandiyaUser/:uid", async (req, res) => {
+	try {
+		const updateData = { ...req.body };
+
+		const user = await DandiyaEvent.findOne({ uid: req.params.uid });
+
+		if (!user) {
+			throw new Error("Participant not found");
+		}
+
+		if (
+			user.phone === updateData.phone &&
+			user.events?.some(ev => ev.year === "2025")
+		) {
+			throw new Error("Number is already registered for Dandiya 2025");
+		}
+
+		// ✅ Merge events if provided
+		if (updateData.events && Array.isArray(updateData.events)) {
+			updateData.events = [...user.events, ...updateData.events];
+		}
+		// Normal update (if no events provided)
+		const updatedUser = await DandiyaEvent.findOneAndUpdate(
+			{ uid: req.params.uid },
+			{ $set: updateData },
+			{ new: true }
+		);
+
+
+		return res.json({
+			statusCode: 200,
+			data: updatedUser,
+			message: "Participant details updated successfully"
+		});
+	} catch (err) {
+		return res.json({ statusCode: 400, message: err.message });
+	}
+});
+
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+
+
+app.post('/delete-image', async (req, res) => {
+	try {
+		const { publicId } = req.body;
+		if (!publicId) return res.status(400).json({ error: 'public_id is required' });
+
+		const timestamp = Math.floor(Date.now() / 1000);
+		const stringToSign = `public_id=${publicId}&timestamp=${timestamp}`;
+		const signature = crypto.createHash('sha1').update(stringToSign + CLOUDINARY_API_SECRET).digest('hex');
+
+		// Prepare form data for Cloudinary
+		const formData = new FormData();
+		formData.append('public_id', publicId);
+		formData.append('api_key', CLOUDINARY_API_KEY);
+		formData.append('timestamp', timestamp);
+		formData.append('signature', signature);
+
+		// Call Cloudinary destroy endpoint
+
+		const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/destroy`, {
+			method: 'POST',
+			body: formData,
+			headers: {
+				'X-Requested-With': 'XMLHttpRequest', // Optional, but can help with CORS issues
+			},
+		});
+
+		const data = await response.json();
+		console.log(data)
+		return res.json({ status: 'success', data });
+	} catch (error) {
+		console.error('Delete failed:', error);
+		return res.status(500).json({ status: 'error', error: error.message });
+	}
+});
+
+
 app.post('/createParticipant', async (req, res) => {
 	try {
 
@@ -107,18 +224,34 @@ app.post('/createParticipant', async (req, res) => {
 				throw new Error('All fields must be filled')
 			}
 
-			const data = await ParticipantEntry.findOne({ phone: req.body.phone })
+			const existingUser = await DandiyaEvent.findOne({
+				phone: req.body.phone,
+			});
 
-			if (data) {
-				throw new Error("Number is already registered")
+			// Case 1: Phone already exists
+			if (existingUser) {
+				// Check if 2025 event already registered for this phone
+				const has2025 = existingUser.events?.some(ev => ev.year === "2025");
+				if (has2025) {
+					throw new Error("Number is already registered for Dandiya 2025");
+				}
+
+				// Otherwise, phone exists but not for 2025
+				throw new Error("Phone number is already registered. Please use the 'Already Registered' tab to Register. ");
 			}
 
-			const uid = await autoIncrementLeadId("userId")
 
 
-			const newUser = await ParticipantEntry.create({ ...req.body, uid });
+			const uid = await autoIncrementLeadId("dandiyaUserId");
 
-			return res.json({ statusCode: 200, data: newUser, message: 'Successfully Submitted' })
+			const newUser = await DandiyaEvent.create({ ...req.body, uid });
+
+			return res.json({
+				statusCode: 200,
+				data: newUser,
+				message: "Successfully Submitted",
+			});
+
 
 
 		} else if (req.body?.event === 'plesco') {
@@ -181,6 +314,75 @@ app.post('/createParticipant', async (req, res) => {
 })
 
 
+app.get("/participant/marker/:query", async (req, res) => {
+	try {
+		const { query } = req.params; // frontend sends ?query=1234
+
+		const participant = await DandiyaEvent.findOne({
+			$or: [{ uid: query }, { phone: query }]
+		});
+
+		if (!participant) {
+			return res.json({ statusCode: 400, message: "Participant not found" });
+		}
+		res.json({ statusCode: 200, message: "Successfully Fetch", data: participant });
+	} catch (err) {
+		return res.json({ statusCode: 400, message: err.message });
+	}
+});
+
+app.post("/mark-attendance", async (req, res) => {
+	try {
+		const { uid, phone } = req.body;
+
+		const year = new Date().getFullYear().toString();
+		const event = "dandiya"; // or keep configurable if needed
+		const today = new Date();
+		const todayStr = today.toDateString(); // to compare only date part
+
+		// Build query (uid or phone)
+		const query = uid ? { uid } : { phone };
+
+		// Find participant
+		const participant = await DandiyaEvent.findOne(query);
+		if (!participant) {
+			return res.json({ statusCode: 400, message: "Participant not found" });
+		}
+
+		// Find correct event inside participant
+		const eventObj = participant.events.find(e => e.year === year && e.event === event);
+		if (!eventObj) {
+			return res.json({ statusCode: 400, message: "Not registered for event this year" });
+		}
+
+		// Check if today's attendance already exists
+		let existingDay = eventObj.attendance.find(
+			a => new Date(a.date).toDateString() === todayStr
+		);
+
+		if (existingDay) {
+			// Update existing
+			// existingDay.present = true;
+			return res.json({ statusCode: 400, message: "Attendance already marked for today" });
+		} else {
+			// Push new attendance entry
+			eventObj.attendance.push({
+				date: today,
+				present: true
+			});
+		}
+
+		await participant.save();
+
+		res.json({ statusCode: 200, message: "Attendance marked for today", participant });
+	} catch (err) {
+		console.error(err);
+		res.json({ statusCode: 400, error: "Server error" });
+	}
+});
+
+
+
 app.post('/searchUserData', async (req, res) => {
 	try {
 		const { firstName, lastName, phone, email, dob, villageName, society, flatNumber, wing } = req.body;
@@ -204,9 +406,9 @@ app.post('/searchUserData', async (req, res) => {
 
 		// Query the database based on the search conditions
 		let users = [];
-		const totalDoc = await ParticipantEntry.countDocuments({ event: 'dandiya' })
+		const totalDoc = await DandiyaEvent.countDocuments()
 		if (Object.keys(searchConditions).length > 0) {
-			users = await ParticipantEntry.find({ ...searchConditions, event: 'dandiya' }).populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10').sort({ _id: -1 })
+			users = await DandiyaEvent.find({ ...searchConditions }).sort({ _id: -1 })
 				.limit(limit)
 				.skip(skip);
 
@@ -214,13 +416,28 @@ app.post('/searchUserData', async (req, res) => {
 				throw new Error('Participant data not found');
 			}
 		} else {
-			users = await ParticipantEntry.find({ event: 'dandiya' }).populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10').sort({ _id: -1 })
+			users = await DandiyaEvent.find().sort({ _id: -1 })
 				.limit(limit)
 				.skip(skip);
 		}
 
+		// Add current year isIdDownloaded info
+		const currentYear = new Date().getFullYear().toString();
+		const usersWithDownloadStatus = users.map(user => {
+			const event = user.events.find(e => e.year === currentYear);
+			return {
+				...user.toObject(),
+				isIdDownloaded: event ? event.isIdDownloaded || false : false
+			};
+		});
 
-		return res.json({ statusCode: 200, data: { users, totalDoc }, message: 'Successfully user data found' })
+		return res.json({
+			statusCode: 200,
+			data: { users: usersWithDownloadStatus, totalDoc },
+			message: 'Successfully user data found'
+		});
+
+		// return res.json({ statusCode: 200, data: { users, totalDoc }, message: 'Successfully user data found' })
 
 	} catch (err) {
 		return res.json({ statusCode: 400, message: err.message })
@@ -344,30 +561,37 @@ app.get('/download-excel/:event', async (req, res) => {
 	// Create a new workbook
 	try {
 
-		const data = await ParticipantEntry.find({ event: req.params.event }).populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10')
 
 		let userData = []
 
 		if (req.params.event === 'dandiya') {
-			userData = data.map((item, index) => {
+			const dandiya = await DandiyaEvent.find();
+			userData = dandiya.map((item, index) => {
+				const event2024 = item.events.find(ev => ev.year === "2024");
+				const event2025 = item.events.find(ev => ev.year === "2025");
 				return {
 					srNo: index + 1,
-					uid: item.user.uid,
-					firstName: item.user.firstName,
-					lastName: item.user.lastName,
-					phone: item.user.phone,
-					photoURL: item.user.photoURL,
-					email: item.user.email,
-					dob: item.user.dob,
-					villageName: item.user.villageName,
-					society: item.user.socity,
-					flatNumber: item.user.flatNumber,
-					wing: item.user.wing,
-					gender: item.user.gender,
-					ageGroup: item.user.ageGroup,
+					uid: item.uid,
+					firstName: item.firstName,
+					lastName: item.lastName,
+					phone: item.phone,
+					photoURL: item.photoURL,
+					email: item.email,
+					dob: item.dob,
+					villageName: item.villageName,
+					society: item.society,
+					flatNumber: item.flatNumber,
+					wing: item.wing,
+					gender: item.gender,
+					ageGroup: item.ageGroup,
+					// extra columns
+					registered2024: event2024?.registered === true ? 'YES' : 'NO',
+					registered2025: event2025?.registered === true ? 'YES' : 'NO',
 				}
 			})
 		} else if (req.params.event === 'plesco') {
+			const data = await ParticipantEntry.find({ event: req.params.event }).populate('user player1 player2 player3 player4 player5 player6 player7 player8 player9 player10')
+
 			userData = data.map((item, index) => {
 				const base = {
 					srNo: index + 1,
@@ -419,6 +643,7 @@ app.get('/download-excel/:event', async (req, res) => {
 			})
 		}
 
+
 		const worksheet = XLSX.utils.json_to_sheet(userData);
 		const csv = XLSX.utils.sheet_to_csv(worksheet);
 
@@ -436,7 +661,6 @@ app.get('/download-excel/:event', async (req, res) => {
 		res.json({ statusCode: 400, message: err.message });
 	}
 });
-
 
 app.post('/generate-id', async (req, res) => {
 
@@ -575,10 +799,9 @@ app.post('/generate-id', async (req, res) => {
 
 
 //sigle id card on one page without a4 size
-
 app.get('/generate-id/:id', async (req, res) => {
 	try {
-		const userData = await ParticipantEntry.findById(req.params.id);
+		const userData = await DandiyaEvent.findById(req.params.id);
 
 		if (!userData) throw new Error("User not found");
 
@@ -653,7 +876,13 @@ app.get('/generate-id/:id', async (req, res) => {
 		// Convert PNG buffer to base64
 		const base64Image = buffer.toString('base64');
 
-		userData.isDownloaded = true;
+		const currentYear = new Date().getFullYear().toString();
+		const eventIndex = userData.events.findIndex(e => e.year === currentYear);
+
+		if (eventIndex !== -1) {
+			userData.events[eventIndex].isIdDownloaded = true;
+		}
+
 		await userData.save();
 
 		res.json({ statusCode: 200, data: { base64: base64Image, name: fullName }, message: 'Successfully ID Card Generated' });
@@ -770,6 +999,39 @@ app.get('/plesco-generate-id/:id', async (req, res) => {
 		res.json({ statusCode: 400, message: error.message });
 	}
 });
+
+
+// async function uploadExcel(filePath) {
+
+// 	// Read Excel file
+// 	// Read Excel file
+// 	const workbook = XLSX.readFile(filePath);
+// 	const sheetName = workbook.SheetNames[0];
+// 	let data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+// 	// Add events field to each row
+// 	data = data.map((row) => ({
+// 		...row,
+// 		events: [{ event: "dandiya", year: "2024", registered: true }],
+// 	}));
+
+// 	// Batch insert
+// 	const BATCH_SIZE = 1000;
+// 	for (let i = 0; i < data.length; i += BATCH_SIZE) {
+// 		const batch = data.slice(i, i + BATCH_SIZE);
+// 		try {
+// 			await DandiyaEvent.insertMany(batch, { ordered: false });
+// 			console.log(`✅ Uploaded batch ${i / BATCH_SIZE + 1}`);
+// 		} catch (err) {
+// 			console.error("❌ Error inserting batch:", err);
+// 		}
+// 	}
+
+// 	console.log("✅ All Excel data uploaded successfully!");
+// }
+
+// // Run the function
+// uploadExcel("dandiya-2024.xlsx"); // <-- replace with your actual file name
 
 app.listen(3000, () => {
 	console.log('Server running on http://localhost:3000');

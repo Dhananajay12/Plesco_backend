@@ -2,16 +2,16 @@ const { Schema, default: mongoose } = require("mongoose");
 
 
 const participantUserDataSchema = new Schema({
-	uid: { type: Number, required: true },
+	uid: { type: Number, required: true, unique: true },
 	firstName: { type: String, required: true },
 	middleName: { type: String },
 	lastName: { type: String, required: true },
-	fatherFirstName: { type: String},
+	fatherFirstName: { type: String },
 	fatherMiddleName: { type: String },
 	fatherLastName: { type: String },
 	motherFirstName: { type: String },
 	motherMiddleName: { type: String },
-  motherLastName: { type: String },
+	motherLastName: { type: String },
 	phone: {
 		type: String,
 		required: true,
@@ -43,7 +43,7 @@ const participantUserDataSchema = new Schema({
 		type: String,
 		require: true
 	},
-	address:{
+	address: {
 		type: String,
 	},
 	gender: {
